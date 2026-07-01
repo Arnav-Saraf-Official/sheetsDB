@@ -1,37 +1,27 @@
-/* ============================================================
-   SheetsDB Demo — API Client & UI Controller
-============================================================ */
-
-// ============================================================
-//  API Client
-// ============================================================
-
 const api = {
   get baseUrl() { return document.getElementById('apiUrl').value.trim(); },
   get authKey() { return document.getElementById('authKey').value.trim(); },
 
-  /** Build URL with auth, table, optional _method override, and query params */
-  _buildUrl(table, methodOverride, params) {
+  _buildUrl(table, params) {
     const url = new URL(this.baseUrl);
-    url.searchParams.set('auth', this.authKey);
     url.searchParams.set('table', table);
-    if (methodOverride) url.searchParams.set('_method', methodOverride);
     for (const [k, v] of Object.entries(params)) {
       if (v !== null && v !== undefined && v !== '') url.searchParams.set(k, String(v));
     }
     return url;
   },
 
-  /** Core request */
   async _request(method, table, params, body) {
-    const methodOverride = (method === 'GET' || method === 'POST') ? null : method;
-    const url = this._buildUrl(table, methodOverride, params);
-    const fetchMethod = (method === 'GET') ? 'GET' : 'POST';
-    const opts = { method: fetchMethod };
-    if (body !== null) {
-      opts.headers = { 'Content-Type': 'text/plain' };
-      opts.body = JSON.stringify(body);
-    }
+    const url = this._buildUrl(table, params);
+    const payload = { _method: method, ...(body || {}) };
+    const opts = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain',
+        'x-auth-key': this.authKey
+      },
+      body: JSON.stringify(payload)
+    };
     const start = performance.now();
     let res, data;
     try {
@@ -44,27 +34,23 @@ const api = {
     return { data, elapsed, ok: !data.error };
   },
 
-  // --- Table methods ---
   listTables()              { return this._request('GET', '_tables', {}, null); },
   describeTable(name)       { return this._request('GET', '_tables', { name }, null); },
   createTable(name, columns) { return this._request('POST', '_tables', {}, { name, columns }); },
   dropTable(name)           { return this._request('DELETE', '_tables', { name }, null); },
   renameTable(oldName, newName) { return this._request('PUT', '_tables', {}, { oldName, newName }); },
 
-  // --- Data methods ---
   query(table, params)      { return this._request('GET', table, params, null); },
   insert(table, record)     { return this._request('POST', table, {}, record); },
   insertMany(table, records) { return this._request('POST', table, {}, { records }); },
   update(table, where, values) { return this._request('PUT', table, {}, { where, values }); },
   deleteRows(table, where)  { return this._request('DELETE', table, { where }, null); },
 
-  // --- Schema methods ---
   addColumn(table, column)  { return this._request('POST', '_schema', {}, { table, column }); },
   removeColumn(table, column) { return this._request('DELETE', '_schema', {}, { table, column }); },
   renameColumn(table, oldName, newName) { return this._request('PUT', '_schema', {}, { table, oldName, newName }); },
   changeColumnType(table, column, type) { return this._request('PUT', '_schema', {}, { table, column, type }); },
 
-  /** Quick connectivity test */
   async test() {
     try {
       const r = await this.listTables();
@@ -75,9 +61,6 @@ const api = {
   }
 };
 
-// ============================================================
-//  UI Controller
-// ============================================================
 
 const ui = {
   /** Show results in the panel */

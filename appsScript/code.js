@@ -1,39 +1,34 @@
 const SHEET = SpreadsheetApp.getActiveSpreadsheet();
-const USERS = { "admin": "password123", "reader": "readpass" };
+
+const KEYS = {
+    masterKey: "your-master-key-here",
+    readKey:   "your-read-key-here"
+};
 
 function doGet(e) {
-    // No table param → serve the demo web app
-    if (!e.parameter.table && !e.pathInfo) {
-        return HtmlService.createHtmlOutputFromFile('Index')
-            .setTitle('SheetsDB — Google Sheets Database');
-    }
-    return handleRequest(e, 'GET');
+    return HtmlService.createHtmlOutputFromFile('Index')
+        .setTitle('SheetsDB — Google Sheets Database');
 }
+
 function doPost(e) {
     const body = e?.postData ? JSON.parse(e.postData.contents) : {};
     const method = body._method || e?.parameter?._method || 'POST';
-    return handleRequest(e, method);
+    return handleRequest(e, method, body);
 }
-function doPut(e)    { return handleRequest(e, 'PUT'); }
-function doDelete(e) { return handleRequest(e, 'DELETE'); }
 
-function handleRequest(e, method) {
+function handleRequest(e, method, body) {
     try {
-        // --- auth ---
-        const body = e?.postData ? JSON.parse(e.postData.contents) : {};
-        const auth = e?.parameter?.auth || body.auth;
+        const headers = e?.postData?.headers || {};
+        const auth = headers['x-auth-key'] || headers['X-Auth-Key'] || '';
         if (!authenticate(auth)) return error('Unauthorized', 401);
 
-        // --- table name ---
-        const path = e?.pathInfo || e?.parameter?.table;
+        const path = e?.pathInfo || e?.parameter?.table || body.table;
         if (!path) return error('Table name required', 400);
 
-        // --- write guard ---
-        if (method !== 'GET' && getUserRole(auth) !== 'admin') {
-            return error('Write access requires admin role', 403);
+        if (method !== 'GET' && getUserRole(auth) !== 'master') {
+            return error('Write access requires master key', 403);
         }
 
-        // --- route ---
         switch (method) {
             case 'GET':    return handleGet(path, e?.parameter);
             case 'POST':   return handlePost(path, body);
@@ -47,25 +42,16 @@ function handleRequest(e, method) {
     }
 }
 
-// ============================================================
-//  Auth
-// ============================================================
-
 function authenticate(key) {
     if (!key) return false;
-    return Object.values(USERS).includes(key);
+    return key === KEYS.masterKey || key === KEYS.readKey;
 }
 
 function getUserRole(key) {
-    for (const [role, pass] of Object.entries(USERS)) {
-        if (pass === key) return role;
-    }
+    if (key === KEYS.masterKey) return 'master';
+    if (key === KEYS.readKey)   return 'reader';
     return null;
 }
-
-// ============================================================
-//  Response helpers
-// ============================================================
 
 function success(data) {
     return ContentService.createTextOutput(JSON.stringify(data))
@@ -80,37 +66,28 @@ function error(msg, code) {
     })).setMimeType(ContentService.MimeType.JSON);
 }
 
-// ============================================================
-//  Route handlers
-// ============================================================
-
 function handleGet(path, params) {
-    // system: list / describe tables
     if (path === '_tables') {
         if (params?.name) return success(describeTable(params.name));
         return success(listTables());
     }
 
-    // query rows
     const query = buildQuery(params);
     validateQuery(path, query);
     return success(select(path, query));
 }
 
 function handlePost(path, body) {
-    // system: create table
     if (path === '_tables') {
         if (!body.name) return error('Table name required', 400);
         return success(createTable(body.name, body.columns || []));
     }
-    // system: add column
     if (path === '_schema') {
         if (!body.table)  return error('Table name required', 400);
         if (!body.column) return error('Column definition required', 400);
         return success(addColumn(body.table, body.column));
     }
 
-    // insert row(s)
     if (body.records && Array.isArray(body.records)) {
         return success(insertMany(path, body.records));
     }
@@ -118,14 +95,11 @@ function handlePost(path, body) {
 }
 
 function handlePut(path, body) {
-    // system: rename table
     if (path === '_tables') {
         if (!body.oldName || !body.newName) return error('oldName and newName required', 400);
         return success(renameTable(body.oldName, body.newName));
     }
-    // system: modify column
     if (path === '_schema') {
-        if (!body.table) return error('Table name required', 400);
         if (body.oldName && body.newName) {
             return success(renameColumn(body.table, body.oldName, body.newName));
         }
@@ -135,7 +109,6 @@ function handlePut(path, body) {
         return error('oldName/newName or column/type required', 400);
     }
 
-    // update rows
     let where = body.where;
     if (typeof where === 'string') where = parseWhere(where);
     if (!where) return error('where clause required', 400);
@@ -143,13 +116,11 @@ function handlePut(path, body) {
 }
 
 function handleDelete(path, params, body) {
-    // system: drop table
     if (path === '_tables') {
         const name = body?.name || params?.name;
         if (!name) return error('Table name required', 400);
         return success(dropTable(name));
     }
-    // system: remove column
     if (path === '_schema') {
         const table  = body?.table  || params?.table;
         const column = body?.column || params?.column;
@@ -157,7 +128,6 @@ function handleDelete(path, params, body) {
         return success(removeColumn(table, column));
     }
 
-    // delete rows
     let where = body?.where || params?.where;
     if (typeof where === 'string') where = parseWhere(where);
     if (!where) return error('where clause required', 400);
