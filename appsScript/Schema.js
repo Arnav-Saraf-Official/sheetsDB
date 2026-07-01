@@ -90,7 +90,7 @@ function addColumn(table, definition){
             value = definition.default;
         
         const values = Array(rows - 1)
-            .fill(Null)
+            .fill(null)
             .map(() => [value]);
 
         sheet.getRange(2, sheet.getLastColumn(), rows - 1, 1).setValues(values);

@@ -3,6 +3,7 @@ const DB_OPERATORS = {
     "!=": (a, b) => a != b,
     ">": (a, b) => a > b,
     "<": (a, b) => a < b,
+    ">=": (a, b) => a >= b,
     "<=": (a, b) => a <= b,
     "contains": (a, b) => String(a).includes(String(b)),
     "startsWith": (a, b) => String(a).startsWith(String(b)),
@@ -55,8 +56,8 @@ function insert(table, record){
 }
 
 function insertMany(table, records) {
-    const lock = lockService.getDocumentLock();
-    lock.waitlock(30000);
+    const lock = LockService.getDocumentLock();
+    lock.waitLock(30000);
 
     try{
         if (!Array.isArray(records)) throw new Error("Records must be an array.");
