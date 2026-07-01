@@ -11,7 +11,7 @@ go to the top bar where it shows Extensions, and then create a linked Apps Scrip
 
 2. Then, go to your [Apps Script user settings](https://script.google.com/home/usersettings) and 
 turn on the Google Apps Script API.
-![alt text](readme-images/image.png)
+![alt text](readme-images/image1.png)
 
 3. Clone this repo using the following commands:
 ```
