@@ -1,7 +1,14 @@
 const SHEET = SpreadsheetApp.getActiveSpreadsheet();
 const USERS = { "admin": "password123", "reader": "readpass" };
 
-function doGet(e)    { return handleRequest(e, 'GET'); }
+function doGet(e) {
+    // No table param → serve the demo web app
+    if (!e.parameter.table && !e.pathInfo) {
+        return HtmlService.createHtmlOutputFromFile('Index')
+            .setTitle('SheetsDB — Google Sheets Database');
+    }
+    return handleRequest(e, 'GET');
+}
 function doPost(e) {
     const body = e?.postData ? JSON.parse(e.postData.contents) : {};
     const method = body._method || e?.parameter?._method || 'POST';
@@ -129,8 +136,10 @@ function handlePut(path, body) {
     }
 
     // update rows
-    if (!body.where) return error('where clause required', 400);
-    return success(update(path, body.where, body.values || {}));
+    let where = body.where;
+    if (typeof where === 'string') where = parseWhere(where);
+    if (!where) return error('where clause required', 400);
+    return success(update(path, where, body.values || {}));
 }
 
 function handleDelete(path, params, body) {

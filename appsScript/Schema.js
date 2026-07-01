@@ -176,3 +176,44 @@ function listColumns(table) {
 function describeColumn(table, column) {
     return getColumn(table, column);
 }
+
+// ============================================================
+//  Value type validation & coercion
+// ============================================================
+
+function validateValue(value, column) {
+    const type = (column.type || "string").toLowerCase();
+    const name = column.name;
+
+    switch (type) {
+        case "number": {
+            if (typeof value === "number" && !isNaN(value)) return value;
+            if (typeof value === "string" && value.trim() !== "" && !isNaN(Number(value)))
+                return Number(value);
+            throw new Error(`Column '${name}' expects a number. Got: ${JSON.stringify(value)}`);
+        }
+        case "boolean": {
+            if (typeof value === "boolean") return value;
+            if (value === "true" || value === 1)  return true;
+            if (value === "false" || value === 0) return false;
+            throw new Error(`Column '${name}' expects a boolean. Got: ${JSON.stringify(value)}`);
+        }
+        case "date": {
+            if (value instanceof Date) return value;
+            if (typeof value === "string") {
+                const d = new Date(value);
+                if (!isNaN(d.getTime())) return d;
+            }
+            throw new Error(`Column '${name}' expects a date. Got: ${JSON.stringify(value)}`);
+        }
+        case "json": {
+            if (typeof value === "object" && value !== null) return value;
+            throw new Error(`Column '${name}' expects a JSON object/array. Got: ${JSON.stringify(value)}`);
+        }
+        case "string":
+        default: {
+            if (value === null || value === undefined) return "";
+            return String(value);
+        }
+    }
+}

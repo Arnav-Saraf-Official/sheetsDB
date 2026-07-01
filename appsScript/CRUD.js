@@ -25,14 +25,14 @@ function insert(table, record){
         schema.forEach(column => {
             let value;
 
-            if (column.name === "_id") 
+            if (column.name === "_id")
                 value = meta.nextId;
-            else if (record.hasOwnProperty(column.name)) 
-                value = record[column.name];
-            else if (column.hasOwnProperty("default")) 
+            else if (record.hasOwnProperty(column.name))
+                value = validateValue(record[column.name], column);
+            else if (column.hasOwnProperty("default"))
                 value = column.default === "NOW"
                     ? new Date()
-                    : column.default;
+                    : validateValue(column.default, column);
             else
                 value = "";
 
@@ -71,8 +71,8 @@ function insertMany(table, records) {
         const rows = records.map(record =>{
             return schema.map(column =>{
                 if (column.name === "_id") return nextId++;
-                if (record.hasOwnProperty(column.name)) return record[column.name];
-                if (column.hasOwnProperty("default")) return column.default === "NOW" ? new Date() : column.default;
+                if (record.hasOwnProperty(column.name)) return validateValue(record[column.name], column);
+                if (column.hasOwnProperty("default")) return column.default === "NOW" ? new Date() : validateValue(column.default, column);
                 return "";
             });
         });
@@ -139,7 +139,7 @@ function update(table, where, values){
 
     try{
         const sheet = getTable(table);
-        
+        const schema = getSchema(table);
         const data = sheet.getDataRange().getValues();
 
         if (data.length <= 1)
@@ -147,7 +147,7 @@ function update(table, where, values){
                 success: true,
                 updated: 0
             };
-        
+
         const headers = data[0];
         let updated = 0;
 
@@ -159,7 +159,9 @@ function update(table, where, values){
 
             Object.keys(values).forEach(key => {
                 const index = headers.indexOf(key);
-                if (index !== -1) data[r][index] = values[key];
+                if (index === -1) return;
+                const colDef = schema.find(c => c.name === key);
+                data[r][index] = colDef ? validateValue(values[key], colDef) : values[key];
             });
             updated++;
         }

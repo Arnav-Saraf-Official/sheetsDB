@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SheetsDB — Google Sheets Database</title>
+<style>
+/* ============================================================
+   SheetsDB Demo — Premium Dark Theme
+============================================================ */
+
+:root {
+  --bg:        #0a0a12;
+  --surface:   #13131f;
+  --surface2:  #1b1b2b;
+  --border:    #282840;
+  --border2:   #333355;
+  --primary:   #7c5cfc;
+  --primary-h: #9678fd;
+  --primary-d: #6540e0;
+  --secondary: #00d4c8;
+  --success:   #2dd4bf;
+  --error:     #f87171;
+  --error-d:   #dc2626;
+  --warning:   #fbbf24;
+  --text:      #e2e2f0;
+  --text-dim:  #9090b8;
+  --text-muted:#606080;
+  --code-bg:   #0d0d1a;
+  --radius:    10px;
+  --radius-sm: 6px;
+  --shadow:    0 1px 3px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.25);
+  --font:      'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono:      'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --transition: 180ms ease;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: 15px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(124,92,252,.06) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 50% at 80% 100%, rgba(0,212,200,.04) 0%, transparent 70%),
+    var(--bg);
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-brand { display: flex; align-items: center; gap: 10px; }
+.logo { font-size: 1.6rem; }
+
+.header-brand h1 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -.3px;
+  background: linear-gradient(135deg, var(--primary-h), var(--secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.badge {
+  font-size: .72rem;
+  font-weight: 500;
+  color: var(--text-dim);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  border-radius: 99px;
+  letter-spacing: .2px;
+}
+
+.header-config { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.config-group { display: flex; flex-direction: column; gap: 4px; }
+.config-group label { font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--text-dim); }
+.config-group input { width: 260px; padding: 8px 12px; font-size: .82rem; font-family: var(--mono); }
+
+/* Tabs */
+.tabs {
+  display: flex; gap: 2px; padding: 0 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.tab {
+  padding: 12px 20px; font-size: .85rem; font-weight: 500;
+  color: var(--text-dim); background: none; border: none;
+  border-bottom: 2px solid transparent; cursor: pointer;
+  transition: all var(--transition); white-space: nowrap;
+  font-family: var(--font); letter-spacing: .1px;
+}
+
+.tab:hover { color: var(--text); background: rgba(255,255,255,.02); }
+.tab.active { color: var(--primary-h); border-bottom-color: var(--primary); }
+
+/* Panels */
+.panel { display: none; padding: 24px; }
+.panel.active { display: block; animation: fadeIn .25s ease; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Cards */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 18px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px;
+  display: flex; flex-direction: column; gap: 14px;
+  box-shadow: var(--shadow); transition: border-color var(--transition);
+}
+.card:hover { border-color: var(--border2); }
+.card-wide { max-width: 820px; }
+.card h3 { font-size: .9rem; font-weight: 700; letter-spacing: .4px; color: var(--text); text-transform: uppercase; }
+.card-desc { font-size: .8rem; color: var(--text-dim); line-height: 1.5; }
+.card-danger { border-color: rgba(248,113,113,.2); }
+.card-danger:hover { border-color: rgba(248,113,113,.4); }
+
+/* Fields */
+.field { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.field-sm { flex: 0 0 110px; }
+.flex-2 { flex: 2; }
+.flex-3 { flex: 3; }
+.field label { font-size: .73rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; }
+.hint { font-weight: 400; text-transform: none; color: var(--text-muted); letter-spacing: 0; }
+.hint::before { content: "— "; color: var(--border2); }
+.field-row { display: flex; gap: 12px; align-items: flex-start; }
+
+/* Inputs */
+input[type="text"], input[type="number"], input[type="password"], select, textarea {
+  width: 100%; padding: 9px 13px; background: var(--code-bg);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text); font-size: .84rem; font-family: var(--mono);
+  transition: all var(--transition); outline: none; line-height: 1.5;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(124,92,252,.12); }
+textarea { resize: vertical; min-height: 80px; }
+select {
+  cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239090b8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  padding-right: 32px;
+}
+::placeholder { color: var(--text-muted); opacity: .7; }
+
+/* Toggle */
+.toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: .8rem; color: var(--text-dim); user-select: none; }
+.toggle input { display: none; }
+.toggle-track {
+  width: 36px; height: 20px; background: var(--border);
+  border-radius: 99px; position: relative; transition: all var(--transition);
+}
+.toggle-track::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; background: var(--text-dim);
+  border-radius: 50%; transition: all var(--transition);
+}
+.toggle input:checked + .toggle-track { background: var(--primary-d); }
+.toggle input:checked + .toggle-track::after { left: 18px; background: var(--primary-h); }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 20px; font-size: .82rem; font-weight: 600; font-family: var(--font);
+  border: none; border-radius: var(--radius-sm); cursor: pointer;
+  transition: all var(--transition); letter-spacing: .2px; white-space: nowrap;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-h); box-shadow: 0 4px 16px rgba(124,92,252,.35); }
+.btn-danger { background: transparent; color: var(--error); border: 1px solid rgba(248,113,113,.35); }
+.btn-danger:hover { background: var(--error); color: #fff; border-color: var(--error); }
+.btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border2); }
+.btn-outline:hover { border-color: var(--primary); color: var(--primary-h); }
+.btn-small { padding: 5px 12px; font-size: .75rem; background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.btn-small:hover { color: var(--text); border-color: var(--border2); }
+.btn-icon { font-size: 1rem; }
+
+/* Results */
+.results {
+  margin: 0 24px 24px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); overflow: hidden;
+}
+.results-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; background: var(--surface2);
+  border-bottom: 1px solid var(--border); gap: 12px;
+}
+.results-header h2 { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dim); }
+.results-meta { display: flex; align-items: center; gap: 8px; }
+.status-pill {
+  font-size: .7rem; font-weight: 700; padding: 2px 10px;
+  border-radius: 99px; text-transform: uppercase; letter-spacing: .4px;
+  opacity: 0; transition: opacity var(--transition);
+}
+.status-pill.ok    { opacity: 1; background: rgba(45,212,191,.15); color: var(--success); }
+.status-pill.error { opacity: 1; background: rgba(248,113,113,.15); color: var(--error); }
+.status-pill.info  { opacity: 1; background: rgba(124,92,252,.15); color: var(--primary-h); }
+.res-time { font-size: .7rem; color: var(--text-muted); font-family: var(--mono); }
+.results-body {
+  padding: 18px; font-family: var(--mono); font-size: .8rem;
+  line-height: 1.65; color: var(--text-dim); background: var(--code-bg);
+  overflow-x: auto; max-height: 460px; overflow-y: auto;
+  white-space: pre-wrap; word-break: break-all;
+}
+.results-body.json-loaded { color: var(--text); }
+
+/* Inline result */
+.inline-result {
+  margin-top: 8px; font-family: var(--mono); font-size: .78rem;
+  color: var(--text-dim); background: var(--code-bg);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px 14px; max-height: 160px; overflow-y: auto; white-space: pre-wrap;
+}
+.inline-result:empty { display: none; }
+.result-count { font-size: .78rem; color: var(--text-dim); margin-left: 10px; font-family: var(--mono); }
+.result-count:empty { display: none; }
+
+/* Toast */
+.toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column-reverse; gap: 8px; z-index: 999; }
+.toast {
+  padding: 12px 20px; border-radius: var(--radius-sm); font-size: .82rem;
+  font-weight: 500; color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.4);
+  animation: slideIn .3s ease; max-width: 380px; backdrop-filter: blur(12px);
+}
+.toast.success { background: rgba(45,212,191,.9); }
+.toast.error   { background: rgba(248,113,113,.9); }
+.toast.info    { background: rgba(124,92,252,.9); }
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header { flex-direction: column; align-items: flex-start; padding: 14px 16px; }
+  .header-config { width: 100%; flex-direction: column; align-items: stretch; }
+  .config-group input { width: 100%; }
+  .tabs { padding: 0 12px; gap: 0; }
+  .tab { padding: 10px 14px; font-size: .78rem; }
+  .panel { padding: 16px; }
+  .card-grid { grid-template-columns: 1fr; }
+  .field-row { flex-direction: column; }
+  .field-sm { flex: 1; }
+  .results { margin: 0 12px 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-brand">
+    <span class="logo">🗂️</span>
+    <h1>SheetsDB</h1>
+    <span class="badge">Google Sheets as a Database</span>
+  </div>
+  <div class="header-config">
+    <div class="config-group">
+      <label for="authKey">Auth Key</label>
+      <input type="password" id="authKey" placeholder="password123" autocomplete="off">
+    </div>
+    <button id="btnConnect" class="btn btn-outline" title="Test connection">
+      <span class="btn-icon">&#9889;</span> Connect
+    </button>
+  </div>
+</header>
+
+<!-- Tabs -->
+<nav class="tabs" id="tabNav">
+  <button class="tab active" data-tab="tables">📋 Tables</button>
+  <button class="tab" data-tab="query">🔍 Query</button>
+  <button class="tab" data-tab="insert">➕ Insert</button>
+  <button class="tab" data-tab="update">✏️ Update</button>
+  <button class="tab" data-tab="delete">🗑️ Delete</button>
+  <button class="tab" data-tab="schema">🏗️ Schema</button>
+</nav>
+
+<main class="main">
+
+  <!-- Tables -->
+  <section class="panel active" id="panel-tables">
+    <div class="card-grid">
+      <div class="card">
+        <h3>Create Table</h3>
+        <div class="field"><label>Table Name</label><input type="text" id="ct-name" placeholder="users"></div>
+        <div class="field"><label>Columns <span class="hint">JSON array</span></label><textarea id="ct-columns" rows="4" placeholder='["name", "email", {"name":"age","type":"number"}]'></textarea></div>
+        <button class="btn btn-primary" data-action="createTable">Create</button>
+      </div>
+      <div class="card">
+        <h3>List Tables</h3>
+        <p class="card-desc">Fetch all user-created tables in the spreadsheet.</p>
+        <button class="btn btn-primary" data-action="listTables">Refresh</button>
+        <div id="tableList" class="inline-result"></div>
+      </div>
+      <div class="card">
+        <h3>Describe Table</h3>
+        <div class="field"><label>Table Name</label><input type="text" id="desc-name" placeholder="users"></div>
+        <button class="btn btn-primary" data-action="describeTable">Describe</button>
+      </div>
+      <div class="card">
+        <h3>Rename Table</h3>
+        <div class="field-row">
+          <div class="field"><label>Old Name</label><input type="text" id="rn-old" placeholder="users"></div>
+          <div class="field"><label>New Name</label><input type="text" id="rn-new" placeholder="members"></div>
+        </div>
+        <button class="btn btn-primary" data-action="renameTable">Rename</button>
+      </div>
+      <div class="card card-danger">
+        <h3>Drop Table</h3>
+        <p class="card-desc">Permanently delete a table and all its data.</p>
+        <div class="field"><label>Table Name</label><input type="text" id="drop-name" placeholder="users"></div>
+        <button class="btn btn-danger" data-action="dropTable">Drop</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Query -->
+  <section class="panel" id="panel-query">
+    <div class="card card-wide">
+      <h3>SELECT Query</h3>
+      <div class="field-row">
+        <div class="field flex-2"><label>Table</label><input type="text" id="q-table" placeholder="users"></div>
+        <div class="field flex-3"><label>Where <span class="hint">e.g. age&gt;18;name=John</span></label><input type="text" id="q-where" placeholder="age>18"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Select <span class="hint">comma-separated</span></label><input type="text" id="q-select" placeholder="name,email"></div>
+        <div class="field"><label>Sort <span class="hint">-age = desc, +name = asc</span></label><input type="text" id="q-sort" placeholder="-age"></div>
+        <div class="field field-sm"><label>Limit</label><input type="number" id="q-limit" placeholder="50" min="0"></div>
+        <div class="field field-sm"><label>Offset</label><input type="number" id="q-offset" placeholder="0" min="0"></div>
+      </div>
+      <button class="btn btn-primary" data-action="query">Run Query</button>
+      <span id="queryCount" class="result-count"></span>
+    </div>
+  </section>
+
+  <!-- Insert -->
+  <section class="panel" id="panel-insert">
+    <div class="card card-wide">
+      <h3>Insert Rows</h3>
+      <div class="field-row">
+        <div class="field flex-2"><label>Table</label><input type="text" id="ins-table" placeholder="users"></div>
+        <div class="field" style="align-self:flex-end">
+          <label class="toggle"><input type="checkbox" id="ins-bulk"><span class="toggle-track"></span>Bulk Insert</label>
+        </div>
+      </div>
+      <div class="field">
+        <label id="ins-label">Record <span class="hint">JSON object</span></label>
+        <textarea id="ins-data" rows="5" placeholder='{"name":"John","age":25}'></textarea>
+      </div>
+      <button class="btn btn-primary" data-action="insert">Insert</button>
+    </div>
+  </section>
+
+  <!-- Update -->
+  <section class="panel" id="panel-update">
+    <div class="card card-wide">
+      <h3>UPDATE Rows</h3>
+      <div class="field"><label>Table</label><input type="text" id="upd-table" placeholder="users"></div>
+      <div class="field-row">
+        <div class="field"><label>Where <span class="hint">e.g. id=4</span></label><input type="text" id="upd-where" placeholder="id=4"></div>
+        <div class="field"><label>Values <span class="hint">JSON object</span></label><input type="text" id="upd-values" placeholder='{"email":"new@test.com"}'></div>
+      </div>
+      <button class="btn btn-primary" data-action="update">Update</button>
+    </div>
+  </section>
+
+  <!-- Delete -->
+  <section class="panel" id="panel-delete">
+    <div class="card card-wide card-danger">
+      <h3>DELETE Rows</h3>
+      <p class="card-desc">Rows matching the where clause will be permanently removed.</p>
+      <div class="field-row">
+        <div class="field flex-2"><label>Table</label><input type="text" id="del-table" placeholder="users"></div>
+        <div class="field flex-3"><label>Where <span class="hint">e.g. id=4</span></label><input type="text" id="del-where" placeholder="id=4"></div>
+      </div>
+      <button class="btn btn-danger" data-action="deleteRows">Delete Rows</button>
+    </div>
+  </section>
+
+  <!-- Schema -->
+  <section class="panel" id="panel-schema">
+    <div class="card-grid">
+      <div class="card">
+        <h3>Add Column</h3>
+        <div class="field"><label>Table</label><input type="text" id="ac-table" placeholder="users"></div>
+        <div class="field-row">
+          <div class="field"><label>Column Name</label><input type="text" id="ac-name" placeholder="email"></div>
+          <div class="field field-sm"><label>Type</label><select id="ac-type"><option value="string">string</option><option value="number">number</option><option value="boolean">boolean</option><option value="date">date</option><option value="json">json</option></select></div>
+        </div>
+        <button class="btn btn-primary" data-action="addColumn">Add Column</button>
+      </div>
+      <div class="card">
+        <h3>Remove Column</h3>
+        <div class="field-row">
+          <div class="field"><label>Table</label><input type="text" id="rc-table" placeholder="users"></div>
+          <div class="field"><label>Column</label><input type="text" id="rc-name" placeholder="email"></div>
+        </div>
+        <button class="btn btn-danger" data-action="removeColumn">Remove</button>
+      </div>
+      <div class="card">
+        <h3>Rename Column</h3>
+        <div class="field"><label>Table</label><input type="text" id="rnc-table" placeholder="users"></div>
+        <div class="field-row">
+          <div class="field"><label>Old Name</label><input type="text" id="rnc-old" placeholder="email"></div>
+          <div class="field"><label>New Name</label><input type="text" id="rnc-new" placeholder="address"></div>
+        </div>
+        <button class="btn btn-primary" data-action="renameColumn">Rename</button>
+      </div>
+      <div class="card">
+        <h3>Change Column Type</h3>
+        <div class="field"><label>Table</label><input type="text" id="cct-table" placeholder="users"></div>
+        <div class="field-row">
+          <div class="field"><label>Column</label><input type="text" id="cct-column" placeholder="age"></div>
+          <div class="field field-sm"><label>New Type</label><select id="cct-type"><option value="string">string</option><option value="number">number</option><option value="boolean">boolean</option><option value="date">date</option><option value="json">json</option></select></div>
+        </div>
+        <button class="btn btn-primary" data-action="changeColumnType">Change Type</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Results -->
+<section class="results" id="results">
+  <div class="results-header">
+    <h2>Response</h2>
+    <div class="results-meta">
+      <span id="resStatus" class="status-pill"></span>
+      <span id="resTime" class="res-time"></span>
+      <button id="btnCopy" class="btn btn-small" title="Copy response">📋 Copy</button>
+      <button id="btnClear" class="btn btn-small" title="Clear results">✕ Clear</button>
+    </div>
+  </div>
+  <pre id="resBody" class="results-body">// Run a query to see results here</pre>
+</section>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+/* ============================================================
+   SheetsDB Demo — API Client & UI Controller
+============================================================ */
+
+// API base URL — same origin (this GAS web app)
+var API_BASE = window.location.href.split('?')[0];
+
+var api = {
+  get baseUrl() { return API_BASE; },
+  get authKey() { return document.getElementById('authKey').value.trim(); },
+
+  _buildUrl: function(table, methodOverride, params) {
+    var url = new URL(this.baseUrl);
+    url.searchParams.set('auth', this.authKey);
+    url.searchParams.set('table', table);
+    if (methodOverride) url.searchParams.set('_method', methodOverride);
+    for (var k in params) {
+      if (params[k] !== null && params[k] !== undefined && params[k] !== '')
+        url.searchParams.set(k, String(params[k]));
+    }
+    return url;
+  },
+
+  _request: async function(method, table, params, body) {
+    var methodOverride = (method === 'GET' || method === 'POST') ? null : method;
+    var url = this._buildUrl(table, methodOverride, params);
+    var fetchMethod = (method === 'GET') ? 'GET' : 'POST';
+    var opts = { method: fetchMethod };
+    if (body !== null) {
+      opts.headers = { 'Content-Type': 'text/plain' };
+      opts.body = JSON.stringify(body);
+    }
+    var start = performance.now();
+    var res, data;
+    try {
+      res = await fetch(url.toString(), opts);
+      data = await res.json();
+    } catch (err) {
+      data = { error: true, message: err.message || 'Network error', code: 0 };
+    }
+    var elapsed = (performance.now() - start).toFixed(1);
+    return { data: data, elapsed: elapsed, ok: !data.error };
+  },
+
+  listTables:              function() { return this._request('GET', '_tables', {}, null); },
+  describeTable:           function(name) { return this._request('GET', '_tables', { name: name }, null); },
+  createTable:             function(name, columns) { return this._request('POST', '_tables', {}, { name: name, columns: columns }); },
+  dropTable:               function(name) { return this._request('DELETE', '_tables', { name: name }, null); },
+  renameTable:             function(oldName, newName) { return this._request('PUT', '_tables', {}, { oldName: oldName, newName: newName }); },
+  query:                   function(table, params) { return this._request('GET', table, params, null); },
+  insert:                  function(table, record) { return this._request('POST', table, {}, record); },
+  insertMany:              function(table, records) { return this._request('POST', table, {}, { records: records }); },
+  update:                  function(table, where, values) { return this._request('PUT', table, {}, { where: where, values: values }); },
+  deleteRows:              function(table, where) { return this._request('DELETE', table, { where: where }, null); },
+  addColumn:               function(table, column) { return this._request('POST', '_schema', {}, { table: table, column: column }); },
+  removeColumn:            function(table, column) { return this._request('DELETE', '_schema', {}, { table: table, column: column }); },
+  renameColumn:            function(table, oldName, newName) { return this._request('PUT', '_schema', {}, { table: table, oldName: oldName, newName: newName }); },
+  changeColumnType:        function(table, column, type) { return this._request('PUT', '_schema', {}, { table: table, column: column, type: type }); },
+
+  test: async function() {
+    try { return await this.listTables(); }
+    catch { return { ok: false, data: { error: true, message: 'Connection failed' }, elapsed: 0 }; }
+  }
+};
+
+var ui = {
+  showResult: function(data, elapsed, ok) {
+    var status = document.getElementById('resStatus');
+    var time   = document.getElementById('resTime');
+    var body   = document.getElementById('resBody');
+    status.className = 'status-pill ' + (ok ? 'ok' : 'error');
+    status.textContent = ok ? 'OK' : 'ERROR';
+    time.textContent = elapsed ? elapsed + 'ms' : '';
+    var formatted = JSON.stringify(data, null, 2);
+    body.textContent = formatted;
+    body.classList.add('json-loaded');
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  },
+  clearResult: function() {
+    document.getElementById('resStatus').className = 'status-pill';
+    document.getElementById('resTime').textContent = '';
+    document.getElementById('resBody').textContent = '// Run a query to see results here';
+    document.getElementById('resBody').classList.remove('json-loaded');
+  },
+  toast: function(msg, type) {
+    var container = document.getElementById('toasts');
+    var el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(function() { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; }, 2500);
+    setTimeout(function() { el.remove(); }, 2900);
+  },
+  setInline: function(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; },
+  setCount: function(text) { document.getElementById('queryCount').textContent = text; },
+  val: function(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; },
+  whereVal: function(id) {
+    var raw = this.val(id); if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return raw; }
+  },
+  buildQueryParams: function() {
+    var p = {};
+    var w = this.val('q-where');     if (w) p.where  = w;
+    var s = this.val('q-select');    if (s) p.select = s;
+    var o = this.val('q-sort');      if (o) p.sort   = o;
+    var l = this.val('q-limit');     if (l) p.limit  = l;
+    var f = this.val('q-offset');    if (f) p.offset = f;
+    return p;
+  },
+  saveConfig: function() { localStorage.setItem('sheetsdb_auth', document.getElementById('authKey').value); },
+  loadConfig: function() {
+    var auth = localStorage.getItem('sheetsdb_auth');
+    if (auth) document.getElementById('authKey').value = auth;
+  },
+  ensureConfig: function() {
+    if (!api.authKey) { this.toast('Enter your Auth Key first', 'error'); return false; }
+    return true;
+  }
+};
+
+var actions = {
+  createTable: async function() {
+    var name = ui.val('ct-name');
+    if (!name) { ui.toast('Table name required', 'error'); return; }
+    var columns = [];
+    var raw = ui.val('ct-columns');
+    if (raw) { try { columns = JSON.parse(raw); } catch { ui.toast('Invalid JSON in columns', 'error'); return; } }
+    return api.createTable(name, columns);
+  },
+  listTables: async function() {
+    var r = await api.listTables();
+    if (r.ok && Array.isArray(r.data)) {
+      var items = r.data.length
+        ? r.data.map(function(t) { return '<span class="table-chip">📋 ' + esc(t) + '</span>'; }).join(' ')
+        : '<span style="color:var(--text-muted)">No tables yet</span>';
+      ui.setInline('tableList', items);
+    }
+    return r;
+  },
+  describeTable: async function() {
+    var name = ui.val('desc-name');
+    if (!name) { ui.toast('Table name required', 'error'); return; }
+    return api.describeTable(name);
+  },
+  renameTable: async function() {
+    var oldName = ui.val('rn-old'), newName = ui.val('rn-new');
+    if (!oldName || !newName) { ui.toast('Old and new names required', 'error'); return; }
+    return api.renameTable(oldName, newName);
+  },
+  dropTable: async function() {
+    var name = ui.val('drop-name');
+    if (!name) { ui.toast('Table name required', 'error'); return; }
+    if (!confirm('Drop table "' + name + '"? This deletes all data permanently.')) return;
+    return api.dropTable(name);
+  },
+  query: async function() {
+    var table = ui.val('q-table');
+    if (!table) { ui.toast('Table name required', 'error'); return; }
+    var r = await api.query(table, ui.buildQueryParams());
+    if (r.ok && Array.isArray(r.data)) ui.setCount('(' + r.data.length + ' row' + (r.data.length !== 1 ? 's' : '') + ')');
+    else ui.setCount('');
+    return r;
+  },
+  insert: async function() {
+    var table = ui.val('ins-table');
+    if (!table) { ui.toast('Table name required', 'error'); return; }
+    var raw = ui.val('ins-data');
+    if (!raw) { ui.toast('Record data required', 'error'); return; }
+    var data;
+    try { data = JSON.parse(raw); } catch { ui.toast('Invalid JSON in record', 'error'); return; }
+    var bulk = document.getElementById('ins-bulk').checked;
+    if (bulk) {
+      if (!Array.isArray(data)) { ui.toast('Bulk insert expects a JSON array', 'error'); return; }
+      return api.insertMany(table, data);
+    }
+    return api.insert(table, data);
+  },
+  update: async function() {
+    var table = ui.val('upd-table');
+    if (!table) { ui.toast('Table name required', 'error'); return; }
+    var whereRaw = ui.val('upd-where');
+    if (!whereRaw) { ui.toast('Where clause required', 'error'); return; }
+    var where;
+    try { where = JSON.parse(whereRaw); } catch { where = whereRaw; }
+    var valuesRaw = ui.val('upd-values');
+    var values = {};
+    if (valuesRaw) { try { values = JSON.parse(valuesRaw); } catch { ui.toast('Invalid JSON in values', 'error'); return; } }
+    return api.update(table, where, values);
+  },
+  deleteRows: async function() {
+    var table = ui.val('del-table');
+    if (!table) { ui.toast('Table name required', 'error'); return; }
+    var whereRaw = ui.val('del-where');
+    if (!whereRaw) { ui.toast('Where clause required', 'error'); return; }
+    var where;
+    try { where = JSON.parse(whereRaw); } catch { where = whereRaw; }
+    return api.deleteRows(table, where);
+  },
+  addColumn: async function() {
+    var table = ui.val('ac-table'), name = ui.val('ac-name'), type = ui.val('ac-type');
+    if (!table || !name) { ui.toast('Table and column name required', 'error'); return; }
+    return api.addColumn(table, { name: name, type: type });
+  },
+  removeColumn: async function() {
+    var table = ui.val('rc-table'), column = ui.val('rc-name');
+    if (!table || !column) { ui.toast('Table and column name required', 'error'); return; }
+    if (!confirm('Remove column "' + column + '" from "' + table + '"? Data in this column will be lost.')) return;
+    return api.removeColumn(table, column);
+  },
+  renameColumn: async function() {
+    var table = ui.val('rnc-table'), oldName = ui.val('rnc-old'), newName = ui.val('rnc-new');
+    if (!table || !oldName || !newName) { ui.toast('Table, old name, and new name required', 'error'); return; }
+    return api.renameColumn(table, oldName, newName);
+  },
+  changeColumnType: async function() {
+    var table = ui.val('cct-table'), column = ui.val('cct-column'), type = ui.val('cct-type');
+    if (!table || !column) { ui.toast('Table and column name required', 'error'); return; }
+    return api.changeColumnType(table, column, type);
+  }
+};
+
+function esc(str) {
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function handleAction(actionName) {
+  if (!ui.ensureConfig()) return;
+  var fn = actions[actionName];
+  if (!fn) { ui.toast('Unknown action: ' + actionName, 'error'); return; }
+  var resBody = document.getElementById('resBody');
+  resBody.textContent = '...';
+  resBody.classList.add('json-loaded');
+  document.getElementById('resStatus').className = 'status-pill info';
+  document.getElementById('resStatus').textContent = 'LOADING';
+  document.getElementById('resTime').textContent = '';
+  try {
+    var r = await fn();
+    if (r) {
+      ui.showResult(r.data, r.elapsed, r.ok);
+      ui.toast(r.ok ? 'Success' : (r.data.message || 'Request failed'), r.ok ? 'success' : 'error');
+    }
+  } catch (err) {
+    ui.showResult({ error: true, message: err.message }, 0, false);
+    ui.toast(err.message, 'error');
+  }
+}
+
+function setupTabs() {
+  var tabs = document.querySelectorAll('.tab');
+  var panels = document.querySelectorAll('.panel');
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      var target = tab.dataset.tab;
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      panels.forEach(function(p) { p.classList.remove('active'); });
+      var panel = document.getElementById('panel-' + target);
+      if (panel) panel.classList.add('active');
+    });
+  });
+}
+
+function setupActions() {
+  document.addEventListener('click', async function(e) {
+    var btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    await handleAction(btn.dataset.action);
+  });
+}
+
+async function testConnection() {
+  var btn = document.getElementById('btnConnect');
+  btn.textContent = '…'; btn.disabled = true;
+  if (!api.authKey) { ui.toast('Enter Auth Key', 'error'); resetBtn(); return; }
+  var r = await api.test();
+  if (r.ok) { ui.toast('Connected!', 'success'); ui.showResult(r.data, r.elapsed, true); }
+  else { ui.toast(r.data.message || 'Connection failed', 'error'); ui.showResult(r.data, r.elapsed, false); }
+  resetBtn();
+  function resetBtn() { btn.innerHTML = '<span class="btn-icon">&#9889;</span> Connect'; btn.disabled = false; }
+}
+
+function setupConfigPersistence() {
+  document.getElementById('authKey').addEventListener('change', function() { ui.saveConfig(); });
+  document.getElementById('btnConnect').addEventListener('click', testConnection);
+}
+
+function setupResultControls() {
+  document.getElementById('btnClear').addEventListener('click', function() { ui.clearResult(); });
+  document.getElementById('btnCopy').addEventListener('click', function() {
+    var text = document.getElementById('resBody').textContent;
+    navigator.clipboard.writeText(text).then(
+      function() { ui.toast('Copied to clipboard', 'success'); },
+      function() { ui.toast('Failed to copy', 'error'); }
+    );
+  });
+}
+
+function setupKeyboard() {
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      var panel = document.querySelector('.panel.active');
+      if (!panel) return;
+      var btn = panel.querySelector('[data-action]');
+      if (btn) btn.click();
+    }
+  });
+}
+
+function setupBulkToggle() {
+  var toggle = document.getElementById('ins-bulk');
+  var label  = document.getElementById('ins-label');
+  toggle.addEventListener('change', function() {
+    if (toggle.checked) {
+      label.innerHTML = 'Records <span class="hint">JSON array of objects</span>';
+      document.getElementById('ins-data').placeholder = '[{"name":"John","age":25},{"name":"Jane","age":30}]';
+    } else {
+      label.innerHTML = 'Record <span class="hint">JSON object</span>';
+      document.getElementById('ins-data').placeholder = '{"name":"John","age":25}';
+    }
+  });
+}
+
+function init() {
+  ui.loadConfig();
+  setupTabs();
+  setupActions();
+  setupConfigPersistence();
+  setupResultControls();
+  setupKeyboard();
+  setupBulkToggle();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>

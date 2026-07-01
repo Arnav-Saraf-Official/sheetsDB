@@ -29,7 +29,7 @@ const api = {
     const fetchMethod = (method === 'GET') ? 'GET' : 'POST';
     const opts = { method: fetchMethod };
     if (body !== null) {
-      opts.headers = { 'Content-Type': 'application/json' };
+      opts.headers = { 'Content-Type': 'text/plain' };
       opts.body = JSON.stringify(body);
     }
     const start = performance.now();
