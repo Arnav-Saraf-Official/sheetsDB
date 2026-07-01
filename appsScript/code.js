@@ -2,7 +2,11 @@ const SHEET = SpreadsheetApp.getActiveSpreadsheet();
 const USERS = { "admin": "password123", "reader": "readpass" };
 
 function doGet(e)    { return handleRequest(e, 'GET'); }
-function doPost(e)   { return handleRequest(e, 'POST'); }
+function doPost(e) {
+    const body = e?.postData ? JSON.parse(e.postData.contents) : {};
+    const method = body._method || e?.parameter?._method || 'POST';
+    return handleRequest(e, method);
+}
 function doPut(e)    { return handleRequest(e, 'PUT'); }
 function doDelete(e) { return handleRequest(e, 'DELETE'); }
 

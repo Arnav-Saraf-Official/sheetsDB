@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SheetsDB — Google Sheets Database</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============================================================
+     Header
+============================================================ -->
+<header class="header">
+  <div class="header-brand">
+    <span class="logo">🗂️</span>
+    <h1>SheetsDB</h1>
+    <span class="badge">Google Sheets as a Database</span>
+  </div>
+  <div class="header-config">
+    <div class="config-group">
+      <label for="apiUrl">API URL</label>
+      <input type="text" id="apiUrl" value="https://script.google.com/macros/s/AKfycbwqo9jxBcoDenlgIgzk5Wjebfg2Gyu5W9qb6j3zvbtv10daXHPXQWfPDOC732-76v42/exec" autocomplete="off">
+    </div>
+    <div class="config-group">
+      <label for="authKey">Auth Key</label>
+      <input type="password" id="authKey" placeholder="password123" autocomplete="off">
+    </div>
+    <button id="btnConnect" class="btn btn-outline" title="Test connection">
+      <span class="btn-icon">&#9889;</span> Connect
+    </button>
+  </div>
+</header>
+
+<!-- ============================================================
+     Tabs
+============================================================ -->
+<nav class="tabs" id="tabNav">
+  <button class="tab active" data-tab="tables">📋 Tables</button>
+  <button class="tab" data-tab="query">🔍 Query</button>
+  <button class="tab" data-tab="insert">➕ Insert</button>
+  <button class="tab" data-tab="update">✏️ Update</button>
+  <button class="tab" data-tab="delete">🗑️ Delete</button>
+  <button class="tab" data-tab="schema">🏗️ Schema</button>
+</nav>
+
+<!-- ============================================================
+     Main content
+============================================================ -->
+<main class="main">
+
+  <!-- ========================================
+       Tables
+  ======================================== -->
+  <section class="panel active" id="panel-tables">
+    <div class="card-grid">
+
+      <div class="card">
+        <h3>Create Table</h3>
+        <div class="field">
+          <label>Table Name</label>
+          <input type="text" id="ct-name" placeholder="users">
+        </div>
+        <div class="field">
+          <label>Columns <span class="hint">JSON array</span></label>
+          <textarea id="ct-columns" rows="4" placeholder='["name", "email", {"name":"age","type":"number"}]'></textarea>
+        </div>
+        <button class="btn btn-primary" data-action="createTable">Create</button>
+      </div>
+
+      <div class="card">
+        <h3>List Tables</h3>
+        <p class="card-desc">Fetch all user-created tables in the spreadsheet.</p>
+        <button class="btn btn-primary" data-action="listTables">Refresh</button>
+        <div id="tableList" class="inline-result"></div>
+      </div>
+
+      <div class="card">
+        <h3>Describe Table</h3>
+        <div class="field">
+          <label>Table Name</label>
+          <input type="text" id="desc-name" placeholder="users">
+        </div>
+        <button class="btn btn-primary" data-action="describeTable">Describe</button>
+      </div>
+
+      <div class="card">
+        <h3>Rename Table</h3>
+        <div class="field-row">
+          <div class="field">
+            <label>Old Name</label>
+            <input type="text" id="rn-old" placeholder="users">
+          </div>
+          <div class="field">
+            <label>New Name</label>
+            <input type="text" id="rn-new" placeholder="members">
+          </div>
+        </div>
+        <button class="btn btn-primary" data-action="renameTable">Rename</button>
+      </div>
+
+      <div class="card card-danger">
+        <h3>Drop Table</h3>
+        <p class="card-desc">Permanently delete a table and all its data.</p>
+        <div class="field">
+          <label>Table Name</label>
+          <input type="text" id="drop-name" placeholder="users">
+        </div>
+        <button class="btn btn-danger" data-action="dropTable">Drop</button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ========================================
+       Query
+  ======================================== -->
+  <section class="panel" id="panel-query">
+    <div class="card card-wide">
+      <h3>SELECT Query</h3>
+      <div class="field-row">
+        <div class="field flex-2">
+          <label>Table</label>
+          <input type="text" id="q-table" placeholder="users">
+        </div>
+        <div class="field flex-3">
+          <label>Where <span class="hint">e.g. age&gt;18;name=John</span></label>
+          <input type="text" id="q-where" placeholder="age>18">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Select <span class="hint">comma-separated</span></label>
+          <input type="text" id="q-select" placeholder="name,email">
+        </div>
+        <div class="field">
+          <label>Sort <span class="hint">-age = desc, +name = asc</span></label>
+          <input type="text" id="q-sort" placeholder="-age">
+        </div>
+        <div class="field field-sm">
+          <label>Limit</label>
+          <input type="number" id="q-limit" placeholder="50" min="0">
+        </div>
+        <div class="field field-sm">
+          <label>Offset</label>
+          <input type="number" id="q-offset" placeholder="0" min="0">
+        </div>
+      </div>
+      <button class="btn btn-primary" data-action="query">Run Query</button>
+      <span id="queryCount" class="result-count"></span>
+    </div>
+  </section>
+
+  <!-- ========================================
+       Insert
+  ======================================== -->
+  <section class="panel" id="panel-insert">
+    <div class="card card-wide">
+      <h3>Insert Rows</h3>
+      <div class="field-row">
+        <div class="field flex-2">
+          <label>Table</label>
+          <input type="text" id="ins-table" placeholder="users">
+        </div>
+        <div class="field" style="align-self:flex-end">
+          <label class="toggle">
+            <input type="checkbox" id="ins-bulk">
+            <span class="toggle-track"></span>
+            Bulk Insert
+          </label>
+        </div>
+      </div>
+      <div class="field">
+        <label id="ins-label">Record <span class="hint">JSON object</span></label>
+        <textarea id="ins-data" rows="5" placeholder='{"name":"John","age":25}'></textarea>
+      </div>
+      <button class="btn btn-primary" data-action="insert">Insert</button>
+    </div>
+  </section>
+
+  <!-- ========================================
+       Update
+  ======================================== -->
+  <section class="panel" id="panel-update">
+    <div class="card card-wide">
+      <h3>UPDATE Rows</h3>
+      <div class="field">
+        <label>Table</label>
+        <input type="text" id="upd-table" placeholder="users">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Where <span class="hint">e.g. id=4</span></label>
+          <input type="text" id="upd-where" placeholder="id=4">
+        </div>
+        <div class="field">
+          <label>Values <span class="hint">JSON object</span></label>
+          <input type="text" id="upd-values" placeholder='{"email":"new@test.com"}'>
+        </div>
+      </div>
+      <button class="btn btn-primary" data-action="update">Update</button>
+    </div>
+  </section>
+
+  <!-- ========================================
+       Delete
+  ======================================== -->
+  <section class="panel" id="panel-delete">
+    <div class="card card-wide card-danger">
+      <h3>DELETE Rows</h3>
+      <p class="card-desc">Rows matching the where clause will be permanently removed.</p>
+      <div class="field-row">
+        <div class="field flex-2">
+          <label>Table</label>
+          <input type="text" id="del-table" placeholder="users">
+        </div>
+        <div class="field flex-3">
+          <label>Where <span class="hint">e.g. id=4</span></label>
+          <input type="text" id="del-where" placeholder="id=4">
+        </div>
+      </div>
+      <button class="btn btn-danger" data-action="deleteRows">Delete Rows</button>
+    </div>
+  </section>
+
+  <!-- ========================================
+       Schema
+  ======================================== -->
+  <section class="panel" id="panel-schema">
+    <div class="card-grid">
+
+      <div class="card">
+        <h3>Add Column</h3>
+        <div class="field">
+          <label>Table</label>
+          <input type="text" id="ac-table" placeholder="users">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Column Name</label>
+            <input type="text" id="ac-name" placeholder="email">
+          </div>
+          <div class="field field-sm">
+            <label>Type</label>
+            <select id="ac-type">
+              <option value="string">string</option>
+              <option value="number">number</option>
+              <option value="boolean">boolean</option>
+              <option value="date">date</option>
+              <option value="json">json</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" data-action="addColumn">Add Column</button>
+      </div>
+
+      <div class="card">
+        <h3>Remove Column</h3>
+        <div class="field-row">
+          <div class="field">
+            <label>Table</label>
+            <input type="text" id="rc-table" placeholder="users">
+          </div>
+          <div class="field">
+            <label>Column</label>
+            <input type="text" id="rc-name" placeholder="email">
+          </div>
+        </div>
+        <button class="btn btn-danger" data-action="removeColumn">Remove</button>
+      </div>
+
+      <div class="card">
+        <h3>Rename Column</h3>
+        <div class="field">
+          <label>Table</label>
+          <input type="text" id="rnc-table" placeholder="users">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Old Name</label>
+            <input type="text" id="rnc-old" placeholder="email">
+          </div>
+          <div class="field">
+            <label>New Name</label>
+            <input type="text" id="rnc-new" placeholder="address">
+          </div>
+        </div>
+        <button class="btn btn-primary" data-action="renameColumn">Rename</button>
+      </div>
+
+      <div class="card">
+        <h3>Change Column Type</h3>
+        <div class="field">
+          <label>Table</label>
+          <input type="text" id="cct-table" placeholder="users">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Column</label>
+            <input type="text" id="cct-column" placeholder="age">
+          </div>
+          <div class="field field-sm">
+            <label>New Type</label>
+            <select id="cct-type">
+              <option value="string">string</option>
+              <option value="number">number</option>
+              <option value="boolean">boolean</option>
+              <option value="date">date</option>
+              <option value="json">json</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" data-action="changeColumnType">Change Type</button>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- ============================================================
+     Results panel
+============================================================ -->
+<section class="results" id="results">
+  <div class="results-header">
+    <h2>Response</h2>
+    <div class="results-meta">
+      <span id="resStatus" class="status-pill"></span>
+      <span id="resTime" class="res-time"></span>
+      <button id="btnCopy" class="btn btn-small" title="Copy response">📋 Copy</button>
+      <button id="btnClear" class="btn btn-small" title="Clear results">✕ Clear</button>
+    </div>
+  </div>
+  <pre id="resBody" class="results-body">// Run a query to see results here</pre>
+</section>
+
+<!-- ============================================================
+     Toast container
+============================================================ -->
+<div class="toast-container" id="toasts"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
