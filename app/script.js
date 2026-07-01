@@ -215,8 +215,9 @@ const actions = {
   async listTables() {
     const r = await api.listTables();
     if (r.ok && Array.isArray(r.data)) {
+      const tableIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>';
       const items = r.data.length
-        ? r.data.map(t => `<span class="table-chip">📋 ${esc(t)}</span>`).join(' ')
+        ? r.data.map(t => `<span class="table-chip">${tableIcon} ${esc(t)}</span>`).join(' ')
         : '<span style="color:var(--text-muted)">No tables yet</span>';
       ui.setInline('tableList', items);
     }
@@ -312,7 +313,7 @@ const actions = {
 
   async removeColumn() {
     const table  = ui.val('rc-table');
-    const column = ui.val('rc-name');
+    const column = ui.val('rc-column');
     if (!table || !column) { ui.toast('Table and column name required', 'error'); return; }
     if (!confirm(`Remove column "${column}" from "${table}"? Data in this column will be lost.`)) return;
     return api.removeColumn(table, column);
@@ -418,7 +419,7 @@ async function testConnection() {
 
   resetBtn();
   function resetBtn() {
-    btn.innerHTML = '<span class="btn-icon">&#9889;</span> Connect';
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg> Connect';
     btn.disabled = false;
   }
 }
