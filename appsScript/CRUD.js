@@ -194,7 +194,7 @@ function remove(table, where) {
             };
         const headers = data[0];
         const keep = [headers];
-        let deleted = 0;    
+        let deleted = 0;
         for (let r = 1; r < data.length; r++) {
 
             const row = {};
@@ -207,9 +207,21 @@ function remove(table, where) {
             }
             keep.push(data[r]);
         }
+
+        // Reassign _id sequentially so no gaps remain
+        const idIndex = headers.indexOf("_id");
+        if (idIndex !== -1 && keep.length > 1) {
+            for (let r = 1; r < keep.length; r++) {
+                keep[r][idIndex] = r;
+            }
+        }
+
         sheet.clearContents();
         sheet.getRange(1, 1, keep.length, headers.length).setValues(keep);
-        updateTableMeta(table, { modified: new Date() });
+        updateTableMeta(table, {
+            modified: new Date(),
+            nextId: keep.length  // next available _id = row count + 1, and keep includes header
+        });
         return {
             success: true,
             deleted

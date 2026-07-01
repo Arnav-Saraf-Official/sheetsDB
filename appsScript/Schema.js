@@ -76,24 +76,26 @@ function addColumn(table, definition){
     validateSchema(schema);
 
     const sheet = getTable(table);
+    const currentCols = sheet.getLastColumn();
+    const newCol = currentCols + 1;
 
-    sheet.insertColumnAfter(sheet.getLastColumn());
+    sheet.insertColumnAfter(currentCols);
 
-    sheet.getRange(1, sheet.getLastColumn()).setValue(definition.name);
+    sheet.getRange(1, newCol).setValue(definition.name);
 
     const rows = sheet.getLastRow();
 
     if (rows > 1) {
         let value = "";
-        
+
         if (definition.hasOwnProperty("default"))
             value = definition.default;
-        
+
         const values = Array(rows - 1)
             .fill(null)
             .map(() => [value]);
 
-        sheet.getRange(2, sheet.getLastColumn(), rows - 1, 1).setValues(values);
+        sheet.getRange(2, newCol, rows - 1, 1).setValues(values);
     }
     
     updateTableMeta(table, {
