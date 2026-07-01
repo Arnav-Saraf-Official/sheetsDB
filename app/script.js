@@ -1,37 +1,27 @@
-/* ============================================================
-   SheetsDB Demo — API Client & UI Controller
-============================================================ */
-
-// ============================================================
-//  API Client
-// ============================================================
-
 const api = {
   get baseUrl() { return document.getElementById('apiUrl').value.trim(); },
   get authKey() { return document.getElementById('authKey').value.trim(); },
 
-  /** Build URL with auth, table, optional _method override, and query params */
-  _buildUrl(table, methodOverride, params) {
+  _buildUrl(table, params) {
     const url = new URL(this.baseUrl);
-    url.searchParams.set('auth', this.authKey);
     url.searchParams.set('table', table);
-    if (methodOverride) url.searchParams.set('_method', methodOverride);
     for (const [k, v] of Object.entries(params)) {
       if (v !== null && v !== undefined && v !== '') url.searchParams.set(k, String(v));
     }
     return url;
   },
 
-  /** Core request */
   async _request(method, table, params, body) {
-    const methodOverride = (method === 'GET' || method === 'POST') ? null : method;
-    const url = this._buildUrl(table, methodOverride, params);
-    const fetchMethod = (method === 'GET') ? 'GET' : 'POST';
-    const opts = { method: fetchMethod };
-    if (body !== null) {
-      opts.headers = { 'Content-Type': 'text/plain' };
-      opts.body = JSON.stringify(body);
-    }
+    const url = this._buildUrl(table, params);
+    const payload = { _method: method, ...(body || {}) };
+    const opts = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain',
+        'x-auth-key': this.authKey
+      },
+      body: JSON.stringify(payload)
+    };
     const start = performance.now();
     let res, data;
     try {
@@ -44,27 +34,23 @@ const api = {
     return { data, elapsed, ok: !data.error };
   },
 
-  // --- Table methods ---
   listTables()              { return this._request('GET', '_tables', {}, null); },
   describeTable(name)       { return this._request('GET', '_tables', { name }, null); },
   createTable(name, columns) { return this._request('POST', '_tables', {}, { name, columns }); },
   dropTable(name)           { return this._request('DELETE', '_tables', { name }, null); },
   renameTable(oldName, newName) { return this._request('PUT', '_tables', {}, { oldName, newName }); },
 
-  // --- Data methods ---
   query(table, params)      { return this._request('GET', table, params, null); },
   insert(table, record)     { return this._request('POST', table, {}, record); },
   insertMany(table, records) { return this._request('POST', table, {}, { records }); },
   update(table, where, values) { return this._request('PUT', table, {}, { where, values }); },
   deleteRows(table, where)  { return this._request('DELETE', table, { where }, null); },
 
-  // --- Schema methods ---
   addColumn(table, column)  { return this._request('POST', '_schema', {}, { table, column }); },
   removeColumn(table, column) { return this._request('DELETE', '_schema', {}, { table, column }); },
   renameColumn(table, oldName, newName) { return this._request('PUT', '_schema', {}, { table, oldName, newName }); },
   changeColumnType(table, column, type) { return this._request('PUT', '_schema', {}, { table, column, type }); },
 
-  /** Quick connectivity test */
   async test() {
     try {
       const r = await this.listTables();
@@ -75,9 +61,6 @@ const api = {
   }
 };
 
-// ============================================================
-//  UI Controller
-// ============================================================
 
 const ui = {
   /** Show results in the panel */
@@ -215,9 +198,8 @@ const actions = {
   async listTables() {
     const r = await api.listTables();
     if (r.ok && Array.isArray(r.data)) {
-      const tableIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>';
       const items = r.data.length
-        ? r.data.map(t => `<span class="table-chip">${tableIcon} ${esc(t)}</span>`).join(' ')
+        ? r.data.map(t => `<span class="table-chip">📋 ${esc(t)}</span>`).join(' ')
         : '<span style="color:var(--text-muted)">No tables yet</span>';
       ui.setInline('tableList', items);
     }
@@ -313,7 +295,7 @@ const actions = {
 
   async removeColumn() {
     const table  = ui.val('rc-table');
-    const column = ui.val('rc-column');
+    const column = ui.val('rc-name');
     if (!table || !column) { ui.toast('Table and column name required', 'error'); return; }
     if (!confirm(`Remove column "${column}" from "${table}"? Data in this column will be lost.`)) return;
     return api.removeColumn(table, column);
@@ -419,7 +401,7 @@ async function testConnection() {
 
   resetBtn();
   function resetBtn() {
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg> Connect';
+    btn.innerHTML = '<span class="btn-icon">&#9889;</span> Connect';
     btn.disabled = false;
   }
 }
