@@ -19,7 +19,7 @@ function doPost(e) {
 function handleRequest(e, method, body) {
     try {
         const headers = e?.postData?.headers || {};
-        const auth = headers['x-auth-key'] || headers['X-Auth-Key'] || '';
+        const auth = body.auth || headers['x-auth-key'] || headers['X-Auth-Key'] || '';
         if (!authenticate(auth)) return error('Unauthorized', 401);
 
         const path = e?.pathInfo || e?.parameter?.table || body.table;
