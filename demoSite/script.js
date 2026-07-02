@@ -16,11 +16,8 @@ const api = {
     const payload = { _method: method, ...(body || {}) };
     const opts = {
       method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain',
-        'x-auth-key': this.authKey
-      },
-      body: JSON.stringify(payload)
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ auth: this.authKey, ...payload })
     };
     const start = performance.now();
     let res, data;
