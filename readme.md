@@ -46,5 +46,21 @@ clasp push
 I mean yall can go look for yourself I am too lazy to list all of them right now
 
 ## Specialty
-** It uses google sheets ** what more could you possibly need?
+**It uses google sheets** what more could you possibly need?
 <small>(Yes, it can be edited visually in google sheets itself, just don't mess up the configuration sheets, and remember to update the configuration sheets as well)</small>
+
+<details>
+  <summary>
+    <h2>AI Disclaimer/Credits</h2>
+  </summary>
+  
+  In this day and age basically everything has some AI in it.
+  In this project, AI was used to:
+  - Write deployment scripts (@appsScript/deploy.sh)
+  - Enhance the website to make it look better (UI/UX Pro Max Skill used)
+  - Research the documentation and syntax of google apps script
+  - Create a list of the features I wanted (@PLAN.md)
+  - Debug the code to figure out why CORS was always causing problems
+
+  AI infrastucture used: Deepseek-v4-pro and flash, interfaced with claude code.
+</details>
