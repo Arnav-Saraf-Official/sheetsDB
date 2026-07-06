@@ -44,6 +44,7 @@
   <button class="tab" data-tab="update">✏️ Update</button>
   <button class="tab" data-tab="delete">🗑️ Delete</button>
   <button class="tab" data-tab="schema">🏗️ Schema</button>
+  <button class="tab" data-tab="rls">🔐 RLS</button>
 </nav>
 
 <!-- ============================================================
@@ -313,6 +314,111 @@
           </div>
         </div>
         <button class="btn btn-primary" data-action="changeColumnType">Change Type</button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ========================================
+       RLS
+  ======================================== -->
+  <section class="panel" id="panel-rls">
+    <div class="card-grid">
+
+      <!-- RLS Status + Toggle -->
+      <div class="card">
+        <h3>RLS Status</h3>
+        <div class="rls-status-row">
+          <span id="rlsStatusBadge" class="status-pill info">...</span>
+          <span id="rlsUserCount" class="hint" style="margin-left:8px"></span>
+        </div>
+        <div class="field-row" style="gap:8px">
+          <button class="btn btn-primary btn-sm" data-action="rlsEnable">Enable RLS</button>
+          <button class="btn btn-outline btn-sm" data-action="rlsDisable">Disable RLS</button>
+        </div>
+        <p class="card-desc">Service key required. When RLS is off, all valid keys get full access.</p>
+        <button class="btn btn-outline btn-sm" data-action="rlsRefreshStatus">Refresh Status</button>
+      </div>
+
+      <!-- Create API User -->
+      <div class="card">
+        <h3>Create API User</h3>
+        <div class="field">
+          <label>Global Permission</label>
+          <select id="rls-create-gperms">
+            <option value="r">r — read only</option>
+            <option value="w">w — read + write</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Table Overrides <span class="hint">JSON, e.g. {"members":"w"}</span></label>
+          <input type="text" id="rls-create-tables" placeholder='{"members":"w"}'>
+        </div>
+        <button class="btn btn-primary" data-action="rlsCreateUser">Create User + Get JWT</button>
+        <div id="rlsNewKey" class="inline-result" style="border-color:var(--success);color:var(--success)"></div>
+      </div>
+
+      <!-- List / Manage Users -->
+      <div class="card card-wide" style="grid-column:1/-1">
+        <h3>API Users</h3>
+        <button class="btn btn-outline btn-sm" data-action="rlsListUsers" style="align-self:flex-start">Refresh Users</button>
+        <div id="rlsKeyList" class="rls-key-table">
+          <div class="rls-key-row rls-key-header">
+            <span>ID</span><span>Gperm</span><span>Tables</span><span></span>
+          </div>
+          <div id="rlsKeyRows" class="rls-key-body">
+            <div class="rls-key-placeholder">No users yet. Create one above.</div>
+          </div>
+        </div>
+        <!-- Update / Delete row -->
+        <div class="field-row" style="gap:8px;align-items:flex-end">
+          <div class="field field-sm">
+            <label>User ID</label>
+            <input type="number" id="rls-mgmt-id" placeholder="1" min="1">
+          </div>
+          <div class="field field-sm">
+            <label>New Gperm</label>
+            <select id="rls-mgmt-gperms">
+              <option value="">— no change —</option>
+              <option value="r">r</option>
+              <option value="w">w</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>New Tables</label>
+            <input type="text" id="rls-mgmt-tables" placeholder='{"members":"w"}'>
+          </div>
+          <button class="btn btn-primary btn-sm" data-action="rlsUpdateUser">Update</button>
+          <button class="btn btn-danger btn-sm" data-action="rlsDeleteUser">Delete</button>
+        </div>
+      </div>
+
+      <!-- How RLS Works -->
+      <div class="card card-wide" style="grid-column:1/-1">
+        <h3>How RLS Works</h3>
+        <div class="rls-docs">
+          <p><strong>Service Key</strong> (<code>KEYS.masterKey</code>) — bypasses all RLS. Only key that can manage <code>_rls</code> endpoints and table/schema operations.</p>
+          <p><strong>JWT Tokens</strong> — HMAC-SHA256 signed. Secret lives in <code>PropertiesService</code> (server-side only). Caller can't spoof user identity. Each token:</p>
+          <ul>
+            <li>Contains <code>sub</code> (user ID), <code>iat</code>, <code>exp</code> (24h expiry)</li>
+            <li>Sent as <code>Authorization: Bearer &lt;token&gt;</code> header</li>
+            <li>Verified on every request — signature, expiry checked</li>
+          </ul>
+          <p><strong>API Users</strong> — stored in <code>__users</code> sheet (<code>_id | gperms | tables</code>). Each has:</p>
+          <ul>
+            <li><code>gperms</code> — global permission: <strong>r</strong> (read-only) or <strong>w</strong> (read+write)</li>
+            <li><code>tables</code> — per-table overrides, e.g. <code>{"members":"w"}</code> overrides gperm for that table</li>
+          </ul>
+          <p><strong>Row-Level Security (Supabase-style)</strong>:</p>
+          <ul>
+            <li>Every table has an <code>owner_id</code> column — stamped server-side on INSERT from the verified JWT</li>
+            <li>Caller CANNOT set or spoof <code>owner_id</code> — it's always derived from the token</li>
+            <li>SELECT / UPDATE / DELETE: <code>owner_id = auth.uid()</code> is unconditionally ANDed onto the user's WHERE clause</li>
+            <li>No query can escape the policy — enforced inside CRUD, not as a post-filter</li>
+            <li>Service key bypasses all policies (sees all rows, can write any row)</li>
+          </ul>
+          <p><strong>RLS Toggle</strong> — when RLS is off, all valid tokens get full read+write access (backward-compatible escape hatch).</p>
+        </div>
       </div>
 
     </div>

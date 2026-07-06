@@ -14,10 +14,17 @@ const api = {
   async _request(method, table, params, body) {
     const url = this._buildUrl(table, params);
     const payload = { _method: method, ...(body || {}) };
+    const headers = { 'Content-Type': 'text/plain' };
+    // Send JWT as Authorization: Bearer <token>
+    // Falls back to body.auth for legacy plain-text keys
+    const token = this.authKey;
+    if (token) {
+      headers['Authorization'] = 'Bearer ' + token;
+    }
     const opts = {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ auth: this.authKey, ...payload })
+      headers: headers,
+      body: JSON.stringify(payload)
     };
     const start = performance.now();
     let res, data;
@@ -47,6 +54,16 @@ const api = {
   removeColumn(table, column) { return this._request('DELETE', '_schema', {}, { table, column }); },
   renameColumn(table, oldName, newName) { return this._request('PUT', '_schema', {}, { table, oldName, newName }); },
   changeColumnType(table, column, type) { return this._request('PUT', '_schema', {}, { table, column, type }); },
+
+  // --- RLS management (service key only) ---
+  rlsStatus()             { return this._request('GET', '_rls', { status: '1' }, null); },
+  rlsEnable()             { return this._request('GET', '_rls', { toggle: 'on' }, null); },
+  rlsDisable()            { return this._request('GET', '_rls', { toggle: 'off' }, null); },
+  rlsListUsers()          { return this._request('GET', '_rls', {}, null); },
+  rlsGetUser(id)          { return this._request('GET', '_rls', { id: String(id) }, null); },
+  rlsCreateUser(gperms, tables) { return this._request('POST', '_rls', {}, { gperms, tables }); },
+  rlsUpdateUser(id, updates)    { return this._request('PUT', '_rls', {}, { id, ...updates }); },
+  rlsDeleteUser(id)       { return this._request('DELETE', '_rls', { id: String(id) }, null); },
 
   async test() {
     try {
@@ -312,6 +329,108 @@ const actions = {
     const type   = ui.val('cct-type');
     if (!table || !column) { ui.toast('Table and column name required', 'error'); return; }
     return api.changeColumnType(table, column, type);
+  },
+
+  // --- RLS ---
+
+  async rlsRefreshStatus() {
+    const r = await api.rlsStatus();
+    if (r.ok && r.data) {
+      const badge = document.getElementById('rlsStatusBadge');
+      badge.textContent = r.data.rls_enabled ? 'ENABLED' : 'DISABLED';
+      badge.className = 'status-pill ' + (r.data.rls_enabled ? 'ok' : 'error');
+      document.getElementById('rlsUserCount').textContent =
+        r.data.user_count !== undefined ? '(' + r.data.user_count + ' user' + (r.data.user_count !== 1 ? 's' : '') + ')' : '';
+    }
+    return r;
+  },
+
+  async rlsEnable() {
+    const r = await api.rlsEnable();
+    if (r.ok) await actions.rlsRefreshStatus();
+    return r;
+  },
+
+  async rlsDisable() {
+    if (!confirm('Disable RLS? All valid keys will get full read+write access.')) return;
+    const r = await api.rlsDisable();
+    if (r.ok) await actions.rlsRefreshStatus();
+    return r;
+  },
+
+  async rlsListUsers() {
+    const r = await api.rlsListUsers();
+    if (r.ok && Array.isArray(r.data)) {
+      const rowsEl = document.getElementById('rlsKeyRows');
+      if (r.data.length === 0) {
+        rowsEl.innerHTML = '<div class="rls-key-placeholder">No users yet. Create one above.</div>';
+      } else {
+        rowsEl.innerHTML = r.data.map(function(u) {
+          const tablesStr = u.tables && Object.keys(u.tables).length
+            ? JSON.stringify(u.tables)
+            : '—';
+          return '<div class="rls-key-row">' +
+            '<span>' + esc(String(u._id)) + '</span>' +
+            '<span class="rls-key-cell-gperm" data-gperm="' + esc(u.gperms) + '">' + esc(u.gperms) + '</span>' +
+            '<span class="rls-key-cell-tables" title="' + esc(tablesStr) + '">' + esc(tablesStr) + '</span>' +
+            '<span></span>' +
+            '</div>';
+        }).join('');
+      }
+    }
+    return r;
+  },
+
+  async rlsCreateUser() {
+    const gperms = document.getElementById('rls-create-gperms').value;
+    const tablesRaw = ui.val('rls-create-tables');
+    let tables = null;
+    if (tablesRaw) {
+      try { tables = JSON.parse(tablesRaw); } catch { ui.toast('Invalid JSON in table overrides', 'error'); return; }
+    }
+    const r = await api.rlsCreateUser(gperms, tables);
+    const keyEl = document.getElementById('rlsNewKey');
+    if (r.ok && r.data.token) {
+      keyEl.innerHTML = '<strong>JWT Token (copy now — never shown again):</strong>\n<code>' + esc(r.data.token) + '</code>';
+      keyEl.style.display = 'block';
+      // Auto-fill the auth field with the new token
+      document.getElementById('authKey').value = r.data.token;
+      ui.saveConfig();
+      await actions.rlsListUsers();
+      await actions.rlsRefreshStatus();
+    } else {
+      keyEl.style.display = 'none';
+    }
+    return r;
+  },
+
+  async rlsUpdateUser() {
+    const idRaw = ui.val('rls-mgmt-id');
+    if (!idRaw) { ui.toast('User ID required', 'error'); return; }
+    const id = Number(idRaw);
+    const updates = {};
+    const gperms = document.getElementById('rls-mgmt-gperms').value;
+    if (gperms) updates.gperms = gperms;
+    const tablesRaw = ui.val('rls-mgmt-tables');
+    if (tablesRaw) {
+      try { updates.tables = JSON.parse(tablesRaw); } catch { ui.toast('Invalid JSON in tables', 'error'); return; }
+    }
+    if (Object.keys(updates).length === 0) { ui.toast('gperms or tables required', 'error'); return; }
+    const r = await api.rlsUpdateUser(id, updates);
+    if (r.ok) await actions.rlsListUsers();
+    return r;
+  },
+
+  async rlsDeleteUser() {
+    const idRaw = ui.val('rls-mgmt-id');
+    if (!idRaw) { ui.toast('User ID required', 'error'); return; }
+    if (!confirm('Delete user ' + idRaw + '? Their token will stop working immediately.')) return;
+    const r = await api.rlsDeleteUser(Number(idRaw));
+    if (r.ok) {
+      await actions.rlsListUsers();
+      await actions.rlsRefreshStatus();
+    }
+    return r;
   }
 };
 
@@ -378,7 +497,7 @@ function setupActions() {
   });
 }
 
-// Connection test
+// Connection test — also detects key type
 async function testConnection() {
   const btn = document.getElementById('btnConnect');
   btn.textContent = '…';
@@ -387,11 +506,35 @@ async function testConnection() {
   if (!api.baseUrl) { ui.toast('Enter API URL', 'error'); resetBtn(); return; }
   if (!api.authKey) { ui.toast('Enter Auth Key', 'error'); resetBtn(); return; }
 
+  // First test basic connectivity
   const r = await api.test();
   if (r.ok) {
-    ui.toast('Connected!', 'success');
+    // Detect key type: try _rls?status (succeeds only for service key)
+    const rlsCheck = await api.rlsStatus();
+    let keyType = '';
+    if (rlsCheck.ok) {
+      keyType = 'service';
+      ui.toast('Connected as service key — full RLS management available', 'success');
+    } else {
+      // JWT tokens start with eyJ (base64url of {"alg"...)
+      if (api.authKey.startsWith('eyJ')) {
+        keyType = 'jwt';
+        ui.toast('Connected with JWT token — RLS enforced', 'info');
+      } else {
+        keyType = 'legacy';
+        ui.toast('Connected with legacy key — consider upgrading to JWT', 'info');
+      }
+    }
+    updateKeyBadge(keyType);
     ui.showResult(r.data, r.elapsed, true);
+
+    // If service key, auto-refresh RLS info
+    if (keyType === 'service') {
+      actions.rlsRefreshStatus();
+      actions.rlsListUsers();
+    }
   } else {
+    updateKeyBadge('');
     ui.toast(r.data.message || 'Connection failed', 'error');
     ui.showResult(r.data, r.elapsed, false);
   }
@@ -400,6 +543,34 @@ async function testConnection() {
   function resetBtn() {
     btn.innerHTML = '<span class="btn-icon">&#9889;</span> Connect';
     btn.disabled = false;
+  }
+}
+
+function updateKeyBadge(type) {
+  let badge = document.getElementById('keyTypeBadge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.id = 'keyTypeBadge';
+    badge.className = 'badge key-type-badge';
+    const connectBtn = document.getElementById('btnConnect');
+    connectBtn.parentNode.insertBefore(badge, connectBtn.nextSibling);
+  }
+  if (type === 'service') {
+    badge.textContent = '🔑 Service Key';
+    badge.style.color = 'var(--success)';
+    badge.style.borderColor = 'rgba(45,212,191,.35)';
+  } else if (type === 'jwt') {
+    badge.textContent = '🎫 JWT Token';
+    badge.style.color = 'var(--accent)';
+    badge.style.borderColor = 'rgba(99,102,241,.35)';
+  } else if (type === 'legacy') {
+    badge.textContent = '🔐 Legacy Key';
+    badge.style.color = 'var(--warning)';
+    badge.style.borderColor = 'rgba(251,191,36,.35)';
+  } else {
+    badge.textContent = '';
+    badge.style.color = '';
+    badge.style.borderColor = '';
   }
 }
 

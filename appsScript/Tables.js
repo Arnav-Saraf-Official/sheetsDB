@@ -40,6 +40,10 @@ function ensureSystemSheets() {
 
         indexes.hideSheet();
     }
+
+    // RLS sheets (idempotent — creates __users + __config if missing)
+    getUsersSheet();
+    getRlsConfigSheet();
 }
 
 function validateTableName(name) {
@@ -156,6 +160,16 @@ function createTable(name, columns = []) {
                 autoIncrement: true,
                 unique: true,
                 required: true
+            },
+            {
+                name: "owner_id",
+                type: "number",
+                required: false
+            },
+            {
+                name: "_keys",
+                type: "json",
+                default: []
             },
             ...columns.map(col =>
                 typeof col === "string"

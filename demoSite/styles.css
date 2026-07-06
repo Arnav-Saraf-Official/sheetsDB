@@ -557,6 +557,123 @@ select {
    Responsive
 ============================================================ */
 
+/* ============================================================
+   RLS Panel
+============================================================ */
+
+.rls-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.rls-key-table {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: .76rem;
+}
+
+.rls-key-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 60px 1fr 50px;
+  gap: 8px;
+  padding: 8px 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.rls-key-row:last-child { border-bottom: none; }
+
+.rls-key-header {
+  background: var(--surface2);
+  color: var(--text-dim);
+  font-weight: 700;
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.rls-key-body {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.rls-key-body .rls-key-row {
+  color: var(--text);
+  background: var(--code-bg);
+}
+
+.rls-key-body .rls-key-row:hover {
+  background: var(--surface2);
+}
+
+.rls-key-placeholder {
+  padding: 18px;
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.rls-key-cell-masked {
+  color: var(--text-dim);
+  letter-spacing: .3px;
+}
+
+.rls-key-cell-tables {
+  color: var(--secondary);
+  font-size: .72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rls-key-cell-gperm {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.rls-key-cell-gperm[data-gperm="w"] { color: var(--success); }
+.rls-key-cell-gperm[data-gperm="r"] { color: var(--warning); }
+
+.rls-docs {
+  font-size: .8rem;
+  color: var(--text-dim);
+  line-height: 1.7;
+}
+
+.rls-docs p { margin-bottom: 8px; }
+
+.rls-docs ul {
+  padding-left: 18px;
+  margin-bottom: 8px;
+}
+
+.rls-docs li {
+  margin-bottom: 4px;
+  font-size: .77rem;
+}
+
+.rls-docs code {
+  background: var(--code-bg);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: .78rem;
+  color: var(--secondary);
+}
+
+.rls-docs strong {
+  color: var(--text);
+}
+
+/* small button */
+.btn-sm {
+  padding: 6px 14px;
+  font-size: .76rem;
+}
+
 @media (max-width: 768px) {
   .header {
     flex-direction: column;

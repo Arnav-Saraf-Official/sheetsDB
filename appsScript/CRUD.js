@@ -11,7 +11,7 @@ const DB_OPERATORS = {
     "in": (a, b) => Array.isArray(b) && b.includes(a)
 };
 
-function insert(table, record){
+function insert(table, record, ownerId){
     const lock = LockService.getDocumentLock();
     lock.waitLock(30000);
 
@@ -27,6 +27,10 @@ function insert(table, record){
 
             if (column.name === "_id")
                 value = meta.nextId;
+            else if (column.name === "owner_id")
+                // Stamped server-side — never from request body.
+                // ownerId is null for service key or RLS-disabled inserts.
+                value = (ownerId != null) ? ownerId : "";
             else if (record.hasOwnProperty(column.name))
                 value = validateValue(record[column.name], column);
             else if (column.hasOwnProperty("default"))
@@ -38,6 +42,14 @@ function insert(table, record){
 
             row.push(value);
         });
+
+        // Serialize JSON columns for sheet storage
+        schema.forEach(function(col, i) {
+            if (col.type === "json") {
+                row[i] = typeof row[i] === "string" ? row[i] : JSON.stringify(row[i]);
+            }
+        });
+
         sheet.appendRow(row);
 
         updateTableMeta(table, {
@@ -55,7 +67,7 @@ function insert(table, record){
     }
 }
 
-function insertMany(table, records) {
+function insertMany(table, records, ownerId) {
     const lock = LockService.getDocumentLock();
     lock.waitLock(30000);
 
@@ -71,26 +83,41 @@ function insertMany(table, records) {
         const rows = records.map(record =>{
             return schema.map(column =>{
                 if (column.name === "_id") return nextId++;
+                // Stamped server-side — never from request body
+                if (column.name === "owner_id") return (ownerId != null) ? ownerId : "";
                 if (record.hasOwnProperty(column.name)) return validateValue(record[column.name], column);
                 if (column.hasOwnProperty("default")) return column.default === "NOW" ? new Date() : validateValue(column.default, column);
                 return "";
             });
         });
-        
-        if (rows.length){
+
+        // Serialize JSON columns for sheet storage
+        const jsonCols = [];
+        schema.forEach(function(col, i) {
+            if (col.type === "json") jsonCols.push(i);
+        });
+
+        const serializedRows = rows.map(function(row) {
+            jsonCols.forEach(function(i) {
+                row[i] = typeof row[i] === "string" ? row[i] : JSON.stringify(row[i]);
+            });
+            return row;
+        });
+
+        if (serializedRows.length){
             sheet.getRange(
                 sheet.getLastRow() + 1,
                 1,
-                rows.length,
+                serializedRows.length,
                 schema.length
-            ).setValues(rows);
+            ).setValues(serializedRows);
         }
         updateTableMeta(table, {
             nextId,
             modified: new Date()
         });
         return{
-            success: true, 
+            success: true,
             inserted: rows.length
         };
 
@@ -98,11 +125,17 @@ function insertMany(table, records) {
         lock.releaseLock();
     }
 }
-function select(table, options={}){
+
+/**
+ * select with optional RLS policy filter.
+ * rlsWhere is ANDed unconditionally with options.where.
+ */
+function select(table, options, rlsWhere){
+    options = options || {};
     const sheet = getTable(table);
     const schema = getSchema(table);
 
-    const values = sheet.getDataRange().getValues()
+    const values = sheet.getDataRange().getValues();
 
     if(values.length <= 1) return [];
 
@@ -113,10 +146,27 @@ function select(table, options={}){
         headers.forEach((header, index) => {
             obj[header] = row[index];
         });
-
         return obj;
-    })
-    if (options.where) rows = rows.filter(r => matchesWhere(r, options.where));
+    });
+
+    // Deserialize JSON columns
+    const jsonColumns = schema.filter(function(c) { return c.type === "json"; });
+    if (jsonColumns.length) {
+        rows.forEach(function(row) {
+            jsonColumns.forEach(function(col) {
+                const val = row[col.name];
+                if (val && typeof val === "string") {
+                    try { row[col.name] = JSON.parse(val); } catch (e) {}
+                } else if (val === "" || val === undefined || val === null) {
+                    row[col.name] = col.hasOwnProperty("default") ? col.default : null;
+                }
+            });
+        });
+    }
+
+    // Merge RLS policy into where clause (RLS ANDed unconditionally)
+    const where = mergeWhere(options.where, rlsWhere);
+    if (where) rows = rows.filter(r => matchesWhere(r, where));
     if (options.sort) rows = sortRows(rows, options.sort);
     if (options.offset) rows = rows.slice(options.offset);
     if (options.limit) rows = rows.slice(0, options.limit);
@@ -128,12 +178,16 @@ function select(table, options={}){
                 obj[col] = row[col];
             });
             return obj;
-        })
+        });
     }
     return rows;
 }
 
-function update(table, where, values){
+/**
+ * update with optional RLS policy filter.
+ * rlsWhere is ANDed unconditionally with the user's where clause.
+ */
+function update(table, where, values, rlsWhere){
     const lock = LockService.getDocumentLock();
     lock.waitLock(30000);
 
@@ -151,13 +205,19 @@ function update(table, where, values){
         const headers = data[0];
         let updated = 0;
 
+        // Merge RLS policy into where clause
+        const effectiveWhere = mergeWhere(where, rlsWhere);
+
         for (let r = 1; r < data.length ; r++) {
             const row = {};
 
             headers.forEach((h,c) => row[h] = data[r][c]);
-            if (!matchesWhere(row, where)) continue;
+            if (!matchesWhere(row, effectiveWhere)) continue;
 
             Object.keys(values).forEach(key => {
+                // Never allow updating owner_id via request body
+                if (key === "owner_id") return;
+
                 const index = headers.indexOf(key);
                 if (index === -1) return;
                 const colDef = schema.find(c => c.name === key);
@@ -178,7 +238,12 @@ function update(table, where, values){
     }
 }
 
-function remove(table, where) {
+/**
+ * remove with optional RLS policy filter.
+ * rlsWhere is ANDed unconditionally with the user's where clause.
+ * Only rows matching BOTH the user's where AND the RLS policy are deleted.
+ */
+function remove(table, where, rlsWhere) {
     const lock = LockService.getDocumentLock();
     lock.waitLock(30000);
 
@@ -195,13 +260,16 @@ function remove(table, where) {
         const headers = data[0];
         const keep = [headers];
         let deleted = 0;
-        for (let r = 1; r < data.length; r++) {
 
+        // Merge RLS policy into where clause
+        const effectiveWhere = mergeWhere(where, rlsWhere);
+
+        for (let r = 1; r < data.length; r++) {
             const row = {};
 
             headers.forEach((h, c) => row[h] = data[r][c]);
 
-            if (matchesWhere(row, where)) {
+            if (matchesWhere(row, effectiveWhere)) {
                 deleted++;
                 continue;
             }
@@ -226,23 +294,23 @@ function remove(table, where) {
             success: true,
             deleted
         };
-        
+
     } finally {
         lock.releaseLock();
     }
 }
 
-function count(table, where = null) {
-    return select(table, {where}).length;
+function count(table, where, rlsWhere) {
+    return select(table, {where: where}, rlsWhere).length;
 }
 
-function exists(table, where){
-    return count(table, where) > 0;
+function exists(table, where, rlsWhere){
+    return count(table, where, rlsWhere) > 0;
 }
 
 function matchesWhere(row, where) {
     if (!where) return true;
-    
+
     if (Array.isArray(where)) {
         return where.every(condition => {
             const [column, operator, value] = condition;

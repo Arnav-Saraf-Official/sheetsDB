@@ -34,13 +34,22 @@ appropriate field.
 
 Then run the following commands:
 ```
-cd appsScript
+cd appsScript 
 clasp push
 ```
 
-6. Now, go back to your dashboard, and create a deployment as a web app. After the deployment has been created, copy the deployment link. Then come back to your terminal and do `source ./deploy.sh` for mac/wsl/linux. (This is probably optional but I do it for good measure.)
+6. **Configure your keys.** Open the Apps Script editor, go to **File > Project Properties > Script Properties**, and add:
 
-7. Start up the demoSite to test your new database out. If you have python installed, you can run `python -m http.server 8080` to start a server on port 8080.
+   | Property | Value |
+   |----------|-------|
+   | `MASTER_KEY` | A secure random string (e.g. `openssl rand -hex 32`). This is your service key — full admin access. |
+   | `READ_KEY` | (Optional) A legacy read-only key for backward compatibility. |
+
+   > **Never commit these values.** The app reads them from `PropertiesService.getScriptProperties()` at runtime — they are never in source code. If `MASTER_KEY` is unset or still the placeholder, the API refuses all requests (fail closed).
+
+7. Now, go back to your dashboard, and create a deployment as a web app. After the deployment has been created, copy the deployment link. Then come back to your terminal and do `source ./deploy.sh` for mac/wsl/linux. (This is probably optional but I do it for good measure.)
+
+8. Start up the demoSite to test your new database out. If you have python installed, you can run `python -m http.server 8080` to start a server on port 8080.
 
 ## Features
 I mean yall can go look for yourself I am too lazy to list all of them right now
